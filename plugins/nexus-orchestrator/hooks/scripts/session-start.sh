@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Initialize Nexus Orchestrator context on session start
-# Injects core priming directive and skill reminder into every new session
+# Injects core priming directive, skill reminder, and CLAUDE.md protocol reference
 
 cat << 'EOF'
 {
