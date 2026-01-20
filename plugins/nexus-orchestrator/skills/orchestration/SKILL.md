@@ -305,6 +305,225 @@ Continue? [yes/no/abort]
 | Feedback | User can provide corrections mid-execution |
 | Recovery | Smaller blast radius if something fails |
 
+---
+
+## Session Persistence Protocol
+
+For tasks spanning multiple sessions, use checkpoints to preserve state.
+
+### Checkpoint File Format
+
+Location: `.claude/plugins/nexus-orchestrator/state/checkpoint.yaml`
+
+```yaml
+checkpoint:
+  id: [uuid]
+  created: [ISO 8601]
+  updated: [ISO 8601]
+
+  task:
+    description: |
+      [Original user request]
+    decomposition:
+      - id: task-001
+        description: [atomic task]
+        status: completed | in_progress | pending | failed
+        result: [output if completed]
+        attempts: 0
+      - id: task-002
+        description: [atomic task]
+        status: pending
+        depends_on: [task-001]
+
+  progress:
+    completed: 2
+    pending: 5
+    failed: 0
+    total: 7
+
+  context:
+    branch: [git branch if applicable]
+    files_modified: [list of files changed]
+    notes: |
+      [Any context needed for resumption]
+```
+
+### Checkpoint Operations
+
+```
+ON task_complete:
+  1. Update checkpoint with task result
+  2. Increment completed count
+  3. Save checkpoint file
+
+ON session_end:
+  1. Save checkpoint with current state
+  2. Log session end in checkpoint
+
+ON session_start:
+  1. Check for existing checkpoint
+  2. If found and incomplete:
+     → Present resumption options to user:
+       a) Resume from checkpoint
+       b) Start fresh (discard checkpoint)
+       c) Review checkpoint before deciding
+```
+
+### Resume Protocol
+
+When resuming from checkpoint:
+
+1. Load checkpoint file
+2. Validate checkpoint integrity (all fields present)
+3. Present status to user:
+   ```
+   Found incomplete orchestration:
+   - Original task: [description]
+   - Progress: [completed]/[total] tasks
+   - Last updated: [timestamp]
+
+   Resume? [yes/no/review]
+   ```
+4. If resume:
+   - Restore context (branch, files)
+   - Continue from first pending task
+5. If review:
+   - Show all task statuses
+   - Allow user to modify before continuing
+
+---
+
+## Retry Attempt Tracking
+
+Track attempts per task to enforce the 3-failure escalation rule.
+
+### Attempt Record
+
+```yaml
+attempts:
+  task_id: "task-001"
+  count: 0
+  max: 3
+  history:
+    - attempt: 1
+      timestamp: [ISO 8601]
+      result: fail | success
+      deviation_id: [if failed]
+      reason: |
+        [Why this attempt failed]
+```
+
+### Tracking Protocol
+
+```
+ON task_dispatch:
+  1. Get or create attempt record for task
+  2. Increment count
+  3. If count > max:
+     → STOP
+     → Invoke systematic-debugging skill
+     → Do NOT retry until root cause identified
+
+ON task_success:
+  1. Mark attempt as success
+  2. Reset counter (for potential re-runs)
+
+ON task_failure:
+  1. Mark attempt as fail
+  2. Log reason
+  3. Link to deviation log
+  4. Check if count >= max
+```
+
+> [!CRITICAL]
+> IF attempt_count >= 3 for any task, STOP and invoke `systematic-debugging` skill.
+> Do NOT continue retrying without root cause investigation.
+
+---
+
+## Timeout Protocol
+
+Handle stuck or long-running tasks with explicit timeout escalation.
+
+### Timeout Thresholds
+
+| Elapsed Time | Action |
+|--------------|--------|
+| 2 minutes | Log warning internally, continue waiting |
+| 5 minutes | Flag as potentially stuck |
+| 10 minutes | Escalate to user |
+
+### Timeout Escalation
+
+```
+AT 5 minutes:
+  1. Log: "Task [id] taking longer than expected"
+  2. Check if task is making progress (any output)
+  3. Continue monitoring
+
+AT 10 minutes:
+  1. Present to user:
+     "Task [id] has been running for 10 minutes.
+
+     Options:
+     a) Continue waiting
+     b) Abort this task
+     c) Abort entire orchestration"
+  2. Wait for user response
+  3. Act on response
+```
+
+### On Timeout Abort
+
+```yaml
+deviation:
+  id: [auto]
+  timestamp: [now]
+  task_id: [reference]
+  expected: "Task completes within reasonable time"
+  actual: "Task timed out after [duration]"
+  root_cause: timeout
+  fix: |
+    Task may be too complex for single atomic unit.
+    Consider decomposing further or providing more context.
+```
+
+---
+
+## Confidence Calibration Guide
+
+Use this guide to interpret and set confidence values consistently.
+
+### Calibration Table
+
+| Score | When to Use | Examples |
+|-------|-------------|----------|
+| **0.95-1.0** | Verified from authoritative source, no ambiguity | Test passed, command succeeded, API returned exact value |
+| **0.8-0.95** | High confidence, single reliable source | Official documentation, verified code path |
+| **0.7-0.8** | Reasonable confidence, some inference | Multiple consistent sources, standard pattern |
+| **0.5-0.7** | Uncertain, multiple interpretations possible | Conflicting sources, unclear requirements |
+| **< 0.5** | Guessing, insufficient information | No sources found, pure speculation |
+
+### Domain-Specific Adjustments
+
+| Domain | Ceiling | Rationale |
+|--------|---------|-----------|
+| Code execution results | 1.0 | Binary: works or doesn't |
+| Test results | 1.0 | Tests pass or fail |
+| Web search results | 0.9 | Sources may be outdated |
+| Memory/inference | 0.7 | No external verification |
+| User intent interpretation | 0.8 | Confirm if uncertain |
+
+### Confidence Red Flags
+
+Do NOT report high confidence (>= 0.8) if:
+- You made any assumptions about missing data
+- Sources conflict with each other
+- You're extrapolating beyond available evidence
+- The claim hasn't been directly verified
+
+---
+
 ## Example Orchestration
 
 User request: "Find current Python version and its release date"

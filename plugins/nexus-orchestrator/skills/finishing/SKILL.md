@@ -30,7 +30,7 @@ version: 1.0.0
 
 ---
 
-## The Four Options
+## The Five Options
 
 After tests pass, present EXACTLY these options:
 
@@ -40,7 +40,8 @@ Work complete. Tests passing. Choose:
 1. Merge locally     - Merge to [base] and delete branch
 2. Create PR         - Push and open pull request
 3. Keep as-is        - No action, branch remains
-4. Discard           - Delete all work (requires confirmation)
+4. Partial rollback  - Undo selected recent tasks
+5. Discard           - Delete all work (requires confirmation)
 ```
 
 ---
@@ -72,7 +73,41 @@ No commands executed.
 
 Result: Branch remains for future work
 
-### Option 4: Discard
+### Option 4: Partial Rollback
+
+For selective undo of recent work without discarding everything.
+
+**Step 1: List recent commits/tasks**
+
+```
+Recent changes (newest first):
+
+1. [commit-hash] [task-id] - [description]
+2. [commit-hash] [task-id] - [description]
+3. [commit-hash] [task-id] - [description]
+
+Select commits to revert [comma-separated, e.g., 1,2]:
+```
+
+**Step 2: Revert selected commits**
+
+```bash
+git revert [commit-hash-1] [commit-hash-2] --no-commit
+git commit -m "Revert: [tasks reverted]"
+```
+
+**Step 3: Re-run tests after revert**
+
+| Result | Action |
+|--------|--------|
+| All pass | Return to options menu |
+| Any fail | Warn user, offer to abort revert |
+
+Result: Selected work undone, branch still exists
+
+---
+
+### Option 5: Discard
 
 **Requires typed confirmation: "discard"**
 
@@ -100,16 +135,17 @@ Result: All work deleted
 ## Option Presentation Format
 
 ```
-┌─────────────────────────────────────────────┐
-│ All tasks complete. Tests passing.          │
-├─────────────────────────────────────────────┤
-│ 1. Merge locally   - Merge to main, cleanup │
-│ 2. Create PR       - Push and open PR       │
-│ 3. Keep as-is      - Branch remains         │
-│ 4. Discard         - Delete work (confirm)  │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ All tasks complete. Tests passing.              │
+├─────────────────────────────────────────────────┤
+│ 1. Merge locally     - Merge to main, cleanup   │
+│ 2. Create PR         - Push and open PR         │
+│ 3. Keep as-is        - Branch remains           │
+│ 4. Partial rollback  - Undo selected tasks      │
+│ 5. Discard           - Delete work (confirm)    │
+└─────────────────────────────────────────────────┘
 
-Choose [1-4]:
+Choose [1-5]:
 ```
 
 ---
@@ -155,7 +191,8 @@ If using git worktrees:
 | 1. Merge | Remove worktree |
 | 2. PR | Keep worktree |
 | 3. Keep | Keep worktree |
-| 4. Discard | Remove worktree |
+| 4. Partial rollback | Keep worktree |
+| 5. Discard | Remove worktree |
 
 ```bash
 # Remove worktree

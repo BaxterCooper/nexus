@@ -33,6 +33,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "executor|reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-stop.sh"
+          }
+        ]
+      }
     ]
   }
 }

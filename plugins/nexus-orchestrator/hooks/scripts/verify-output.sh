@@ -11,6 +11,10 @@ mkdir -p "$(dirname "$DEVIATION_FILE")"
 
 LOG_FILE="$LOG_DIR/verify-$(date +%Y%m%d).log"
 
+# Log rotation: delete logs older than 7 days
+find "$LOG_DIR" -name "verify-*.log" -mtime +7 -delete 2>/dev/null || true
+find "$LOG_DIR" -name "dispatch-*.log" -mtime +7 -delete 2>/dev/null || true
+
 # Read stdin (tool output JSON)
 INPUT=$(cat)
 
@@ -19,16 +23,45 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Extract the result text
 RESULT=$(echo "$INPUT" | jq -r '.tool_result // ""' 2>/dev/null)
 
+# Required fields for executor schema
+REQUIRED_FIELDS=("understood" "approach" "observations" "blockers" "output" "confidence" "evidence")
+
 # Check for required YAML fields in executor response
 SCHEMA_VALID=true
 MISSING_FIELDS=""
+CONFIDENCE="unknown"
 
-for field in "understood:" "approach:" "observations:" "blockers:" "output:" "confidence:" "evidence:"; do
-  if ! echo "$RESULT" | grep -q "$field"; then
-    SCHEMA_VALID=false
-    MISSING_FIELDS="$MISSING_FIELDS $field"
-  fi
-done
+# Try proper YAML parsing with yq first, fall back to grep
+if command -v yq &> /dev/null; then
+  # Use yq for proper YAML validation
+  for field in "${REQUIRED_FIELDS[@]}"; do
+    if ! echo "$RESULT" | yq -e ".$field" > /dev/null 2>&1; then
+      # Check if field exists but is null (which is valid for blockers)
+      if ! echo "$RESULT" | yq -e "has(\"$field\")" > /dev/null 2>&1; then
+        SCHEMA_VALID=false
+        MISSING_FIELDS="$MISSING_FIELDS $field:"
+      fi
+    fi
+  done
+  # Extract confidence value
+  CONFIDENCE=$(echo "$RESULT" | yq -r '.confidence // "unknown"' 2>/dev/null || echo "unknown")
+else
+  # Fallback to grep-based checking (less reliable)
+  for field in "${REQUIRED_FIELDS[@]}"; do
+    if ! echo "$RESULT" | grep -qE "^$field:|^[[:space:]]+$field:"; then
+      SCHEMA_VALID=false
+      MISSING_FIELDS="$MISSING_FIELDS $field:"
+    fi
+  done
+  # Extract confidence via regex
+  CONFIDENCE=$(echo "$RESULT" | grep -oP 'confidence:\s*\K[0-9.]+' 2>/dev/null || echo "unknown")
+fi
+
+# Determine if confidence meets threshold
+CONFIDENCE_MET="unknown"
+if [[ "$CONFIDENCE" =~ ^[0-9.]+$ ]]; then
+  CONFIDENCE_MET=$(echo "$CONFIDENCE >= 0.7" | bc -l 2>/dev/null || echo "unknown")
+fi
 
 # Log verification
 cat >> "$LOG_FILE" << EOF
@@ -37,6 +70,8 @@ timestamp: $TIMESTAMP
 event: verify
 schema_valid: $SCHEMA_VALID
 missing_fields: [$MISSING_FIELDS ]
+confidence: $CONFIDENCE
+confidence_threshold_met: $CONFIDENCE_MET
 result_length: ${#RESULT}
 ---
 EOF
@@ -75,8 +110,18 @@ EOF
   }
 }
 EOF
+elif [[ "$CONFIDENCE_MET" == "0" ]]; then
+  # Schema valid but low confidence - warn but don't block
+  cat << EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "[ORCHESTRATOR] Low confidence ($CONFIDENCE < 0.7). Manual verification recommended."
+  }
+}
+EOF
 else
-  # Schema valid - no additional output needed
+  # Schema valid and confidence ok - no additional output needed
   echo '{}'
 fi
 

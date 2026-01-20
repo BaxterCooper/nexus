@@ -6,7 +6,7 @@ version: 1.0.0
 
 # Systematic Debugging Skill
 
-> **Core Rule**: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.
+> **Core Principle**: No fixes without root cause investigation first.
 
 ## The 3+ Fix Rule
 

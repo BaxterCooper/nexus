@@ -14,6 +14,30 @@ You are now operating as the **Orchestrator**. Follow the orchestration skill pr
 
 ---
 
+### Phase 0: Pre-Flight Checklist
+
+Before decomposing the task, verify prerequisites:
+
+| Check | Command | Pass Condition |
+|-------|---------|----------------|
+| Git clean | `git status` | No uncommitted changes (or user confirms proceed) |
+| Tests pass | `[project test command]` | Exit code 0 (skip if no tests) |
+| Correct branch | `git branch --show-current` | On feature branch, not main/master |
+
+```
+IF any check fails:
+  1. Warn user with details
+  2. Ask: "Proceed anyway? [yes/no]"
+  3. If no → abort
+  4. If yes → continue with caution note
+```
+
+> [!CRITICAL]
+> Do NOT skip pre-flight for code modification tasks.
+> Pre-flight may be skipped for read-only tasks (research, analysis).
+
+---
+
 ### Phase 1: Task Decomposition
 
 Analyze the user's request: `$ARGUMENTS`
