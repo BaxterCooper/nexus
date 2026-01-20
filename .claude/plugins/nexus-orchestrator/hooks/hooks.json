@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/session-start.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-start.sh"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/log-dispatch.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/log-dispatch.sh"
           }
         ]
       }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/verify-output.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-output.sh"
           }
         ]
       }

@@ -1,5 +1,6 @@
 {
   "name": "nexus-orchestrator",
+  "version": "1.0.0",
   "description": "Observable subagent orchestration with structured contracts, verification loops, and deviation tracking",
   "author": {
     "name": "Nexus"
