@@ -1,0 +1,26 @@
+{
+  "name": "baxtercooper-nexus",
+  "owner": {
+    "name": "BaxterCooper"
+  },
+  "metadata": {
+    "description": "Nexus plugin marketplace - observable subagent orchestration tools",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "nexus-orchestrator",
+      "source": "./plugins/nexus-orchestrator",
+      "description": "Observable subagent orchestration with structured contracts, verification loops, and deviation tracking",
+      "version": "1.0.0",
+      "author": {
+        "name": "BaxterCooper"
+      },
+      "repository": "https://github.com/BaxterCooper/nexus",
+      "keywords": ["orchestration", "subagents", "verification", "tdd"],
+      "category": "development-workflows",
+      "tags": ["orchestration", "agents", "verification"]
+    }
+  ]
+}
